@@ -61,24 +61,24 @@ const AddItems = () => {
 
     return (
         <div className="flex h-screen w-screen">
-            {/* Sidebar Section */}
             <div className="w-64 bg-white shadow h-full">
-                <AdminSidebar collapsed={collapsed} setCollapsed={setCollapsed} />
+                <AdminSidebar 
+                    collapsed={collapsed} 
+                    setCollapsed={setCollapsed}
+                    currentPage="add-items"
+                />
             </div>
 
-            {/* Main Content Section */}
             <div className="flex-1 bg-gray-100 p-6 h-full overflow-y-auto">
                 <div className="bg-white rounded-lg shadow p-6 h-full">
                     <h2 className="text-2xl font-semibold mb-6">Add New Inventory Item</h2>
 
-                    {/* Success Message */}
                     {success && (
                         <div className="mb-4 p-4 bg-green-100 text-green-700 rounded-lg">
                             {success}
                         </div>
                     )}
 
-                    {/* Error Message */}
                     {error && (
                         <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
                             {error}
@@ -87,7 +87,6 @@ const AddItems = () => {
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-2 gap-6">
-                            {/* Item Name */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Item Name
@@ -103,7 +102,6 @@ const AddItems = () => {
                                 />
                             </div>
 
-                            {/* Category */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Category

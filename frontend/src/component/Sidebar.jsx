@@ -12,40 +12,29 @@ import {
   LogOut,
   UserCog,
   PlusSquare,
+  Package,
 } from "lucide-react";
 import clsx from "clsx";
 import { HiOutlineUserCircle } from "react-icons/hi";
 import { Link } from "react-router-dom";
+import { BiHome, BiAddToQueue, BiError, BiChart } from "react-icons/bi";
 
 const sections = [
   {
-    title: "Content",
+    title: "Manage Inventory",
     items: [
-      { label: "Add item", icon: PlusSquare, href: "/inventory/add-item" },
-      { label: "Low Stock Items", icon: Video, href: "/inventory/low-stock" },
+      { label: "Add item", icon: PlusSquare, href: "/inventory/add-item",page:"add-items" },
+      { label: "Low Stock Items", icon: Package, href: "/inventory/low-stock" ,page:"low-stock"},
     ],
   },
-//   {
-//     title: "Customization",
-//     items: [
-//       { label: "Hero", icon: LayoutDashboard, href: "/admin//customization/hero" },
-//       { label: "FAQ", icon: CheckSquare, href: "/admin//customization/faq" },
-//       { label: "Categories", icon: Shield, href: "/admin//customization/categories" },
-//     ],
-//   },
   {
-    title: "Controllers",
-    items: [{ label: "Vendors", icon: UserCog, href: "/admin/manage-team" }],
+    title: "Analytics",
+    items: [{ label: "Stock Analytics", icon: BarChart2, href: "/inventory/stock-analytics",page:"analytics" }],
+    
   },
-//   {
-//     title: "Analytics",
-//     items: [{ label: "Courses Analytics", icon: BarChart2, href: "/admin//analytics/courses" }],
-//   },
 ];
 
-export default function AdminSidebar({collapsed,setCollapsed}) {
-  
-
+export default function AdminSidebar({collapsed,setCollapsed, currentPage}) {
   return (
     <nav
   className={clsx(
@@ -102,11 +91,19 @@ export default function AdminSidebar({collapsed,setCollapsed}) {
                 </h4>
               )}
               {section.items.map((item) => (
-                <Link key={item.label} to={item.href} >
-                  <li className="flex items-center p-2 rounded-md transition-transform duration-300 transform hover:scale-105 hover:bg-blue-600 cursor-pointer">
-                    <item.icon className="w-6 h-6" />
-                    {!collapsed && <span className="ml-3">{item.label}</span>}
-                  </li>
+                <Link
+                  key={item.label}
+                  to={item.href}
+                  className={`
+                    flex items-center p-2 rounded-md transition-transform duration-300 transform hover:scale-105 hover:bg-blue-600 cursor-pointer
+                    ${currentPage === item.page 
+                      ? 'bg-blue-500 text-white' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                    }
+                  `}
+                >
+                  <item.icon className="w-6 h-6" />
+                  {!collapsed && <span className="ml-3">{item.label}</span>}
                 </Link>
               ))}
             </div>
