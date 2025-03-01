@@ -22,7 +22,7 @@ const sections = [
     title: "Content",
     items: [
       { label: "Add item", icon: PlusSquare, href: "/inventory/add-item" },
-      { label: "Stock Items", icon: Video, href: "/inventory/low-stock" },
+      { label: "Low Stock Items", icon: Video, href: "/inventory/low-stock" },
     ],
   },
 //   {

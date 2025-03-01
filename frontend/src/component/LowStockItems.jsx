@@ -1,55 +1,115 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminSidebar from './Sidebar';
 
 const LowStockItems = () => {
     const [collapsed, setCollapsed] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
-
-    // Mock data - replace with actual API call
-    const [items, setItems] = useState([
-        {
-            id: 1,
-            itemName: 'Paracetamol',
-            category: 'Medicine',
-            quantity: 8,
-            unit: 'packs',
-            expiryDate: '2024-12-31',
-            reorderLevel: 10
-        },
-        {
-            id: 2,
-            itemName: 'Surgical Masks',
-            category: 'Consumables',
-            quantity: 5,
-            unit: 'boxes',
-            reorderLevel: 20
-        },
-        // Add more mock items as needed
-    ]);
-
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
     const [editingItem, setEditingItem] = useState(null);
+    const [updateLoading, setUpdateLoading] = useState(false);
+    const [showExpiringOnly, setShowExpiringOnly] = useState(false);
+    const [showExpired, setShowExpired] = useState(false);
 
-    const handleDelete = (itemId) => {
-        // TODO: Add API call to delete item
-        setItems(items.filter(item => item.id !== itemId));
+    const fetchItems = async () => {
+        try {
+            const response = await fetch('http://localhost:3000/api/inventory/');
+            if (!response.ok) {
+                throw new Error('Failed to fetch items');
+            }
+            const data = await response.json();
+            setItems(data);
+            console.log(data)
+        } catch (error) {
+            setError('Failed to load items');
+            console.error('Error:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchItems();
+    }, []);
+
+    const handleDelete = async (itemId) => {
+        if (!window.confirm('Are you sure you want to delete this item?')) return;
+
+        try {
+            const response = await fetch(`http://localhost:3000/api/inventory/${itemId}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) throw new Error('Failed to delete item');
+
+            // Refresh items list
+            fetchItems();
+        } catch (error) {
+            console.error('Error deleting item:', error);
+        }
     };
 
     const handleEdit = (item) => {
         setEditingItem(item);
     };
 
-    const handleUpdate = (e) => {
+    const handleUpdate = async (e) => {
         e.preventDefault();
-        // TODO: Add API call to update item
-        setItems(items.map(item =>
-            item.id === editingItem.id ? editingItem : item
-        ));
-        setEditingItem(null);
+        setUpdateLoading(true);
+
+        try {
+            const response = await fetch(`http://localhost:3000/api/inventory/update/${editingItem._id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    quantity: parseInt(editingItem.quantity),
+                    reorderLevel: parseInt(editingItem.reorderLevel)
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update item');
+            }
+
+            // Refresh items list
+            await fetchItems();
+            setEditingItem(null);
+        } catch (error) {
+            console.error('Error updating item:', error);
+        } finally {
+            setUpdateLoading(false);
+        }
+    };
+
+    const isExpiringSoon = (expiryDate) => {
+        if (!expiryDate) return false;
+        const today = new Date();
+        const expiry = new Date(expiryDate);
+        const differenceInDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+        return differenceInDays <= 7 && differenceInDays > 0;
+    };
+
+    const isExpired = (expiryDate) => {
+        if (!expiryDate) return false;
+        const today = new Date();
+        const expiry = new Date(expiryDate);
+        return expiry < today;
     };
 
     const filteredItems = items
-        .filter(item => item.quantity < item.reorderLevel)
+        .filter(item => {
+            if (showExpired) {
+                return isExpired(item.expiryDate);
+            }
+            if (showExpiringOnly) {
+                return isExpiringSoon(item.expiryDate);
+            }
+            return item.quantity < item.reorderLevel;
+        })
         .filter(item =>
             selectedCategory === 'All' || item.category === selectedCategory
         )
@@ -57,16 +117,57 @@ const LowStockItems = () => {
             item.itemName.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
+    if (loading) return (
+        <div className="flex justify-center items-center h-screen">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+        </div>
+    );
+
     return (
         <div className="flex h-screen w-screen">
             <div className="w-64 bg-white shadow h-full">
                 <AdminSidebar collapsed={collapsed} setCollapsed={setCollapsed} />
             </div>
 
-            {/* Main Content Section */}
             <div className="flex-1 bg-gray-100 p-6 h-full overflow-y-auto">
                 <div className="bg-white rounded-lg shadow p-6">
-                    <h2 className="text-2xl font-semibold mb-6">Low Stock Items</h2>
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-semibold">
+                            {showExpired ? 'Expired Items' : 'Low Stock Items'}
+                        </h2>
+                        <div className="flex gap-2">
+                            <button
+                                className={`px-4 py-2 rounded-lg border ${!showExpired
+                                    ? 'bg-blue-100 border-blue-500 text-blue-700'
+                                    : 'bg-white border-gray-300 text-gray-700'
+                                    }`}
+                                onClick={() => {
+                                    setShowExpired(false);
+                                    setShowExpiringOnly(false);
+                                }}
+                            >
+                                Low Stock Items
+                            </button>
+                            <button
+                                className={`px-4 py-2 rounded-lg border ${showExpired
+                                    ? 'bg-red-100 border-red-500 text-red-700'
+                                    : 'bg-white border-gray-300 text-gray-700'
+                                    }`}
+                                onClick={() => {
+                                    setShowExpired(true);
+                                    setShowExpiringOnly(false);
+                                }}
+                            >
+                                Expired Items
+                            </button>
+                        </div>
+                    </div>
+
+                    {error && (
+                        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
+                            {error}
+                        </div>
+                    )}
 
                     {/* Filters */}
                     <div className="flex gap-4 mb-6">
@@ -88,62 +189,120 @@ const LowStockItems = () => {
                             <option value="Consumables">Consumables</option>
                             <option value="Other">Other</option>
                         </select>
+                        {!showExpired && (
+                            <button
+                                className={`px-4 py-2 rounded-lg border ${showExpiringOnly
+                                    ? 'bg-yellow-100 border-yellow-500 text-yellow-700'
+                                    : 'bg-white border-gray-300 text-gray-700'
+                                    }`}
+                                onClick={() => setShowExpiringOnly(!showExpiringOnly)}
+                            >
+                                {showExpiringOnly ? 'Showing Expiring Items' : 'Show Expiring Items'}
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                            <h3 className="text-sm text-gray-500">Total Items</h3>
+                            <p className="text-2xl font-semibold">{items.length}</p>
+                        </div>
+                        <div className="bg-red-50 p-4 rounded-lg">
+                            <h3 className="text-sm text-red-500">Expired Items</h3>
+                            <p className="text-2xl font-semibold text-red-600">
+                                {items.filter(item => isExpired(item.expiryDate)).length}
+                            </p>
+                        </div>
+                        <div className="bg-yellow-50 p-4 rounded-lg">
+                            <h3 className="text-sm text-yellow-600">Expiring Soon</h3>
+                            <p className="text-2xl font-semibold text-yellow-600">
+                                {items.filter(item => isExpiringSoon(item.expiryDate)).length}
+                            </p>
+                        </div>
                     </div>
 
                     {/* Items Table */}
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-4 py-2 text-left">Item Name</th>
-                                    <th className="px-4 py-2 text-left">Category</th>
-                                    <th className="px-4 py-2 text-left">Quantity</th>
-                                    <th className="px-4 py-2 text-left">Unit</th>
-                                    <th className="px-4 py-2 text-left">Reorder Level</th>
-                                    <th className="px-4 py-2 text-left">Expiry Date</th>
-                                    <th className="px-4 py-2 text-left">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredItems.map(item => (
-                                    <tr key={item.id} className="border-t">
-                                        <td className="px-4 py-2">{item.itemName}</td>
-                                        <td className="px-4 py-2">{item.category}</td>
-                                        <td className="px-4 py-2">
-                                            <span className="text-red-500 font-medium">
-                                                {item.quantity}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-2">{item.unit}</td>
-                                        <td className="px-4 py-2">{item.reorderLevel}</td>
-                                        <td className="px-4 py-2">{item.expiryDate || '-'}</td>
-                                        <td className="px-4 py-2">
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => handleEdit(item)}
-                                                    className="text-blue-500 hover:text-blue-700"
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(item.id)}
-                                                    className="text-red-500 hover:text-red-700"
-                                                >
-                                                    Delete
-                                                </button>
-                                            </div>
-                                        </td>
+                    {filteredItems.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                            No {showExpired ? 'expired' : 'low stock'} items found
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-4 py-2 text-left">Item Name</th>
+                                        <th className="px-4 py-2 text-left">Category</th>
+                                        <th className="px-4 py-2 text-left">Quantity</th>
+                                        <th className="px-4 py-2 text-left">Unit</th>
+                                        <th className="px-4 py-2 text-left">Reorder Level</th>
+                                        <th className="px-4 py-2 text-left">Expiry Date</th>
+                                        <th className="px-4 py-2 text-left">Status</th>
+                                        <th className="px-4 py-2 text-left">Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    {filteredItems.map(item => (
+                                        <tr key={item._id} className="border-t">
+                                            <td className="px-4 py-2">{item.itemName}</td>
+                                            <td className="px-4 py-2">{item.category}</td>
+                                            <td className="px-4 py-2">
+                                                <span className={`font-medium ${item.quantity < item.reorderLevel ? 'text-red-500' : 'text-gray-900'
+                                                    }`}>
+                                                    {item.quantity}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-2">{item.unit}</td>
+                                            <td className="px-4 py-2">{item.reorderLevel}</td>
+                                            <td className="px-4 py-2">
+                                                {item.expiryDate ? (
+                                                    <span className={`${isExpiringSoon(item.expiryDate) ? 'text-yellow-600' : 'text-gray-900'
+                                                        }`}>
+                                                        {new Date(item.expiryDate).toLocaleDateString()}
+                                                    </span>
+                                                ) : '-'}
+                                            </td>
+                                            <td className="px-4 py-2">
+                                                {isExpiringSoon(item.expiryDate) && (
+                                                    <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">
+                                                        Expiring Soon
+                                                    </span>
+                                                )}
+                                                {item.quantity < item.reorderLevel && (
+                                                    <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-sm">
+                                                        Low Stock
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-2">
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => handleEdit(item)}
+                                                        className="text-blue-500 hover:text-blue-700"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(item._id)}
+                                                        className="text-red-500 hover:text-red-700"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
 
                     {/* Edit Modal */}
                     {editingItem && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                        <div className="fixed inset-0  bg-opacity-100 flex items-center justify-center">
                             <div className="bg-white p-6 rounded-lg w-96">
-                                <h3 className="text-lg font-semibold mb-4">Edit Item</h3>
+                                <h3 className="text-lg font-semibold mb-4">Edit Item: {editingItem.itemName}</h3>
                                 <form onSubmit={handleUpdate} className="space-y-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -154,7 +313,7 @@ const LowStockItems = () => {
                                             value={editingItem.quantity}
                                             onChange={(e) => setEditingItem({
                                                 ...editingItem,
-                                                quantity: parseInt(e.target.value)
+                                                quantity: e.target.value
                                             })}
                                             className="w-full px-3 py-2 border rounded-lg"
                                             min="0"
@@ -170,7 +329,7 @@ const LowStockItems = () => {
                                             value={editingItem.reorderLevel}
                                             onChange={(e) => setEditingItem({
                                                 ...editingItem,
-                                                reorderLevel: parseInt(e.target.value)
+                                                reorderLevel: e.target.value
                                             })}
                                             className="w-full px-3 py-2 border rounded-lg"
                                             min="0"
@@ -182,14 +341,16 @@ const LowStockItems = () => {
                                             type="button"
                                             onClick={() => setEditingItem(null)}
                                             className="px-4 py-2 border rounded-lg"
+                                            disabled={updateLoading}
                                         >
                                             Cancel
                                         </button>
                                         <button
                                             type="submit"
                                             className="px-4 py-2 bg-blue-500 text-white rounded-lg"
+                                            disabled={updateLoading}
                                         >
-                                            Save Changes
+                                            {updateLoading ? 'Updating...' : 'Save Changes'}
                                         </button>
                                     </div>
                                 </form>

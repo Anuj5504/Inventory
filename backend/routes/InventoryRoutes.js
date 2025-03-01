@@ -5,7 +5,7 @@
     router.get("/", getAllItems);
     router.get("/:id", getItemById);
     router.post("/create", createItem);
-    router.put("/update",updateItem);
+    router.put("/update/:id",updateItem);
     router.delete("/delete/:id",deleteItem);
     router.get("/low-stock",getLowStockItems);
 
